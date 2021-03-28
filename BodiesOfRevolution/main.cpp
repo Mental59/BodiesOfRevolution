@@ -12,6 +12,10 @@ using namespace std;
 GLFWwindow* g_window;
 int screen_width = 800, screen_height = 600;
 
+GLfloat lastX = screen_width / 2.0f, lastY = screen_height / 2.0f;
+GLfloat yaw = -90.0f, pitch = 0.0f;
+bool firstMouse = true;
+
 bool to_rotate = true;
 
 GLuint g_shaderProgram;
@@ -38,8 +42,6 @@ bool mouse_buttons[32];
 Vector3 cameraPos = Vector3(0.0f, 0.0f, 1.0f);
 Vector3 cameraFront = Vector3(0.0f, 0.0f, -1.0f);
 Vector3 cameraUp = Vector3(0.0f, 1.0f, 0.0f);
-
-bool g_changePerspective = false;
 
 GLuint createShader(const GLchar* code, GLenum type);
 
@@ -71,6 +73,10 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 void do_movement(double deltaTime);
 
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+
+void createBodyOfRevolution();
+
 enum class Projection
 {
     orthogonal, 
@@ -78,6 +84,7 @@ enum class Projection
 };
 
 Projection g_proj = Projection::orthogonal;
+bool bodieOfRevoultionCreated = false;
 
 Matrix4 createProjectionMatrix(float far, float near, float fov, int width, int height, Projection proj);
 
@@ -257,7 +264,7 @@ public:
 
     vector<GLfloat> points; // точки кривой
     vector<GLint> indices; // индексы дл€ отрисовки кривых
-
+    vector<Point2D> points2D;
 
     bool calculateCurvePoints(const vector<Point2D>& values)
     {
@@ -266,6 +273,7 @@ public:
 
         this->points.clear();
         this->indices.clear();
+        this->points2D.clear();
 
         int k = 0;
 
@@ -276,6 +284,8 @@ public:
 
                 this->points.push_back(values[i].x);
                 this->points.push_back(values[i].y);
+
+                this->points2D.push_back(Point2D(values[i].x, values[i].y));
             }
         else
             for (Segment& s : curve)
@@ -287,8 +297,13 @@ public:
 
                     this->points.push_back(p.x);
                     this->points.push_back(p.y);
+
+                    this->points2D.push_back(Point2D(p.x, p.y));
                 }
         
+        //cout << "Point count = " << this->pointCount << endl;
+        //cout << this->points.size() << endl;
+
         glBindBuffer(GL_ARRAY_BUFFER, this->model.vbo);
         glBufferData(GL_ARRAY_BUFFER, this->points.size() * sizeof(GLfloat), this->points.data(), GL_DYNAMIC_DRAW);
 
@@ -393,6 +408,40 @@ Curve curve;
 
 int main()
 {
+    /*const int n = 4;
+
+    int* indices = new int[(n - 1) * n * 6];
+
+    int i, k;
+    for (i = 0, k = 0; i < (n - 1) * (n - 1) * 6; k++)
+    {
+        for (int count = 0; count < n - 1; count++, i += 6, k++)
+        {
+            indices[i] = k;
+            indices[i + 1] = k + n;
+            indices[i + 2] = k + 1;
+            indices[i + 3] = k + n;
+            indices[i + 4] = k + n + 1;
+            indices[i + 5] = k + 1;
+            cout << indices[i] << " " << indices[i + 1] << " " << indices[i + 2] << " " << indices[i + 3] << " " << indices[i + 4] << " " << indices[i + 5] << " | ";
+        }
+        cout << endl;
+    }
+
+    for (int cnt = 0, k = n * (n - 1); cnt < n - 1; cnt++, i += 6)
+    {
+        indices[i] = cnt;
+        indices[i + 1] = cnt + k + 1;
+        indices[i + 2] = cnt + k;
+        indices[i + 3] = cnt;
+        indices[i + 4] = cnt + 1;
+        indices[i + 5] = cnt + k + 1;
+        cout << indices[i] << " " << indices[i + 1] << " " << indices[i + 2] << " " << indices[i + 3] << " " << indices[i + 4] << " " << indices[i + 5] << " | ";
+    }
+    cout << endl;
+
+    delete[] indices;*/
+
     // Initialize OpenGL
     if (!initOpenGL())
         return -1;
@@ -538,7 +587,7 @@ bool createShaderProgram()
         "   vec3 n = normalize(v_normal);"
         "   vec3 l = normalize(L - v_position);"
         ""
-        "   float d = max(dot(n, l), 0.2);"
+        "   float d = max(dot(n, l), 0.3);"
         ""
         "   vec3 e = normalize(E - v_position);"
         "   vec3 h = normalize(l + e);"
@@ -568,61 +617,115 @@ bool createShaderProgram()
 
 bool createModel()
 {
-    const GLfloat vertices[] =
+    const int n = curve.points2D.size();
+    const int indices_size = (n - 1) * n * 6;
+
+    Matrix4 rotate = createRotateXMatrix(360.0f / n);
+
+    GLfloat* vertices = new GLfloat[6 * n * n];
+
+    GLuint* indices = new GLuint[indices_size];
+
+    // ¬ычисление нормалей дл€ кривой
+    Point2D v = curve.points2D[1] - curve.points2D[0];
+    v.normalize();
+
+    vertices[0] = curve.points2D[0].x;
+    vertices[1] = curve.points2D[0].y;
+    vertices[2] = 0.0f;
+    vertices[3] = -v.y;
+    vertices[4] = v.x;
+    vertices[5] = 0.0f;
+
+    v = curve.points2D[n - 2] - curve.points2D[n - 1];
+    v.normalize();
+
+    vertices[6 * n * n - 6] = curve.points2D[n - 1].x;
+    vertices[6 * n * n - 5] = curve.points2D[n - 1].y;
+    vertices[6 * n * n - 4] = 0.0f;
+    vertices[6 * n * n - 3] = v.y;
+    vertices[6 * n * n - 2] = -v.x;
+    vertices[6 * n * n - 1] = 0.0f;
+
+    for (int i = 6, k = 1; i < (n - 1) * 6; i += 6, k++)
     {
-        -1.0, -1.0, 1.0, 0.0, 0.0, 1.0, // 0
-        1.0, -1.0, 1.0, 0.0, 0.0, 1.0, // 1
-        1.0, 1.0, 1.0, 0.0, 0.0, 1.0, // 2
-        -1.0, 1.0, 1.0, 0.0, 0.0, 1.0, // 3
+        Point2D v1 = curve.points2D[k] - curve.points2D[k - 1];
+        v1.normalize();
 
-        1.0, -1.0, 1.0, 1.0, 0.0, 0.0, // 4
-        1.0, -1.0, -1.0, 1.0, 0.0, 0.0, // 5
-        1.0, 1.0, -1.0, 1.0, 0.0, 0.0, // 6
-        1.0, 1.0, 1.0, 1.0, 0.0, 0.0, // 7
+        Point2D v2 = curve.points2D[k + 1] - curve.points2D[k];
+        v2.normalize();
 
-        1.0, 1.0, 1.0, 0.0, 1.0, 0.0, // 8
-        1.0, 1.0, -1.0, 0.0, 1.0, 0.0, // 9
-        -1.0, 1.0, -1.0, 0.0, 1.0, 0.0, // 10
-        -1.0, 1.0, 1.0, 0.0, 1.0, 0.0, // 11
+        Point2D sumV = v1 + v2;
+        sumV.normalize();
 
-        -1.0, 1.0, 1.0, -1.0, 0.0, 0.0, // 12
-        -1.0, 1.0, -1.0, -1.0, 0.0, 0.0, // 13
-        -1.0, -1.0, -1.0, -1.0, 0.0, 0.0, // 14
-        -1.0, -1.0, 1.0, -1.0, 0.0, 0.0, // 15
+        vertices[i] = curve.points2D[k].x;
+        vertices[i + 1] = curve.points2D[k].y;
+        vertices[i + 2] = 0.0f;
+        vertices[i + 3] = -sumV.y;
+        vertices[i + 4] = sumV.x;
+        vertices[i + 5] = 0.0f;
+    }
 
-        -1.0, -1.0, 1.0, 0.0, -1.0, 0.0, // 16
-        -1.0, -1.0, -1.0, 0.0, -1.0, 0.0, // 17
-        1.0, -1.0, -1.0, 0.0, -1.0, 0.0, // 18
-        1.0, -1.0, 1.0, 0.0, -1.0, 0.0, // 19
-
-        -1.0, -1.0, -1.0, 0.0, 0.0, -1.0, // 20
-        -1.0, 1.0, -1.0, 0.0, 0.0, -1.0, // 21
-        1.0, 1.0, -1.0, 0.0, 0.0, -1.0, // 22
-        1.0, -1.0, -1.0, 0.0, 0.0, -1.0, // 23
-    };
-
-    const GLuint indices[] =
+    // ѕостроение сетки
+    for (int i = 6 * n; i < n * n * 6; i += 6 * n)
     {
-        0, 1, 2, 2, 3, 0,
-        4, 5, 6, 6, 7, 4,
-        8, 9, 10, 10, 11, 8,
-        12, 13, 14, 14, 15, 12,
-        16, 17, 18, 18, 19, 16,
-        20, 21, 22, 22, 23, 20
-    };
+        for (int j = 0; j < n * 6; j += 6)
+        {
+            Vector4 prevPoint = Vector4(vertices[i + j - 6 * n], vertices[i + j - 6 * n + 1], vertices[i + j - 6 * n + 2], 1.0f);
+            Vector4 prevNormal = Vector4(vertices[i + j - 6 * n + 3], vertices[i + j - 6 * n + 4], vertices[i + j - 6 * n + 5], 1.0f);
+
+            prevPoint = rotate * prevPoint;
+            prevNormal = rotate * prevNormal;
+
+            vertices[i + j] = prevPoint[0];
+            vertices[i + j + 1] = prevPoint[1];
+            vertices[i + j + 2] = prevPoint[2];
+            vertices[i + j + 3] = prevNormal[0];
+            vertices[i + j + 4] = prevNormal[1];
+            vertices[i + j + 5] = prevNormal[2];
+        }
+    }
+
+    // ѕостроение индексов отрисовки
+    int i, k;
+    for (i = 0, k = 0; i < (n - 1) * (n - 1) * 6; k++)
+    {
+        for (int count = 0; count < n - 1; count++, i += 6, k++)
+        {
+            indices[i] = k;
+            indices[i + 1] = k + n;
+            indices[i + 2] = k + 1;
+            indices[i + 3] = k + n;
+            indices[i + 4] = k + n + 1;
+            indices[i + 5] = k + 1;
+        }
+    }
+
+    for (int cnt = 0, k = n * (n - 1); cnt < n - 1; cnt++, i += 6)
+    {
+        indices[i] = cnt;
+        indices[i + 1] = cnt + k + 1;
+        indices[i + 2] = cnt + k;
+        indices[i + 3] = cnt;
+        indices[i + 4] = cnt + 1;
+        indices[i + 5] = cnt + k + 1;
+    }
 
     glGenVertexArrays(1, &g_model.vao);
     glBindVertexArray(g_model.vao);
 
     glGenBuffers(1, &g_model.vbo);
     glBindBuffer(GL_ARRAY_BUFFER, g_model.vbo);
-    glBufferData(GL_ARRAY_BUFFER, 24 * 6 * sizeof(GLfloat), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 6 * n * n * sizeof(GLfloat), vertices, GL_STATIC_DRAW);
 
     glGenBuffers(1, &g_model.ibo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, g_model.ibo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * 6 * sizeof(GLuint), indices, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size * sizeof(GLuint), indices, GL_STATIC_DRAW);
 
-    g_model.indexCount = 6 * 6;
+    delete[] vertices;
+    delete[] indices;
+
+    g_model.indexCount = indices_size;
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (const GLvoid*)0);
@@ -632,9 +735,24 @@ bool createModel()
     return g_model.vbo != 0 && g_model.ibo != 0 && g_model.vao != 0;
 }
 
+void createBodyOfRevolution()
+{
+    if (curve.points2D.size() >= 3)
+    {
+        g_proj = Projection::perspective;
+        g_P = createProjectionMatrix(200.0f, 0.1f, 40.0f, screen_width, screen_height, g_proj);
+        bodieOfRevoultionCreated = createShaderProgram() && createModel();
+        if (bodieOfRevoultionCreated)
+        {
+            cameraPos[2] = 60.0f;
+            glfwSetCursorPosCallback(g_window, mouse_callback);
+            glfwSetInputMode(g_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        }
+    }
+}
+
 bool init()
 {
-    // Set initial color of color buffer to white.
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
     glEnable(GL_DEPTH_TEST);
@@ -653,7 +771,7 @@ void reshape(GLFWwindow* window, int width, int height)
     screen_width = width;
     screen_height = height;
 
-    g_P = createProjectionMatrix(100.0f, 0.1f, 40.0f, screen_width, screen_height, g_proj);
+    g_P = createProjectionMatrix(200.0f, 0.1f, 40.0f, screen_width, screen_height, g_proj);
 }
 
 void draw(double deltaTime)
@@ -664,37 +782,38 @@ void draw(double deltaTime)
     // Clear color buffer.
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    /*glUseProgram(g_shaderProgram);
-    glBindVertexArray(g_model.vao);
+    if (bodieOfRevoultionCreated)
+    {
+        glUseProgram(g_shaderProgram);
+        glBindVertexArray(g_model.vao);
 
-    static Matrix4 initialRotate = createRotateZMatrix(45.0f);
-    static Matrix4 scale = createScaleMatrix(0.5f, 0.5f, 0.5f);
+        static Matrix4 scale = createScaleMatrix(0.05, 0.05, 0.05);
 
-    Matrix4 M = initialRotate *
-        createRotateXMatrix(to_degrees(rotationAngle)) *
-        createRotateZMatrix(to_degrees(rotationAngle)) * scale;
+        Matrix4 M = createRotateXMatrix(to_degrees(rotationAngle)) *
+            createRotateZMatrix(to_degrees(rotationAngle)) * scale;
 
-    Matrix4 M = createRotateMatrix(Vector3(0.5f, 1.0f, 0.0f), 45.0f);
+        Matrix4 V = createLookAtMatrix(cameraPos, cameraPos + cameraFront, cameraUp);
 
-    Matrix4 V = createLookAtMatrix(cameraPos, cameraPos + cameraFront, cameraUp);
+        Matrix4 MV = V * M;
+        Matrix4 MVP = g_P * MV;
+        Matrix3 N = getMainMinor(MV);
 
-    Matrix4 MV = V * M;
-    Matrix4 MVP = g_P * MV;
-    Matrix3 N = getMainMinor(MV);
+        glUniformMatrix4fv(g_uMVP, 1, GL_TRUE, MVP.elements);
+        glUniformMatrix4fv(g_uMV, 1, GL_TRUE, MV.elements);
+        glUniformMatrix3fv(g_uN, 1, GL_TRUE, N.elements);
 
-    glUniformMatrix4fv(g_uMVP, 1, GL_TRUE, MVP.elements);
-    glUniformMatrix4fv(g_uMV, 1, GL_TRUE, MV.elements);
-    glUniformMatrix3fv(g_uN, 1, GL_TRUE, N.elements);
+        glDrawElements(GL_TRIANGLES, g_model.indexCount, GL_UNSIGNED_INT, NULL);
 
-    glDrawElements(GL_TRIANGLES, g_model.indexCount, GL_UNSIGNED_INT, NULL);
+        if (to_rotate)
+            rotationAngle = fmodf(rotationAngle + deltaTime, 2.0f * PI);
+    }
+    else
+    {
+        Matrix4 lookAt = createLookAtMatrix(cameraPos, cameraPos + cameraFront, cameraUp);
 
-    if (to_rotate)
-        rotationAngle = fmodf(rotationAngle + deltaTime, 2.0f * PI);*/
-
-    Matrix4 lookAt = createLookAtMatrix(cameraPos, cameraPos + cameraFront, cameraUp);
-
-    points.draw(deltaTime, lookAt);
-    curve.draw(deltaTime, lookAt);
+        points.draw(deltaTime, lookAt);
+        curve.draw(deltaTime, lookAt);
+    }  
 }
 
 void cleanup()
@@ -783,10 +902,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         to_rotate = !to_rotate;
 
     if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
-    {
-        g_proj = Projection::perspective;
-        g_P = createProjectionMatrix(100.0f, 0.1f, 40.0f, screen_width, screen_height, g_proj);
-    }
+        createBodyOfRevolution();
 
     if (action == GLFW_PRESS)
         keys[key] = true;
@@ -817,7 +933,8 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 void do_movement(double deltaTime)
 {
     // Camera controls
-    GLfloat cameraSpeed = 5.0f * deltaTime;
+    GLfloat cameraSpeed = 40.0f * deltaTime;
+
     if (keys[GLFW_KEY_W])
         cameraPos = cameraPos + cameraSpeed * cameraFront;
     if (keys[GLFW_KEY_S])
@@ -843,4 +960,39 @@ Matrix4 createProjectionMatrix(float far, float near, float fov, int width, int 
         return createPerspectiveProjectionMatrix(far, near, fov, width, height);
         break;
     }
+}
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    if (firstMouse)
+    {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+
+    GLfloat xoffset = xpos - lastX;
+    GLfloat yoffset = lastY - ypos; // ќбратный пор€док вычитани€ потому что оконные Y-координаты возрастают с верху вниз 
+    lastX = xpos;
+    lastY = ypos;
+
+    GLfloat sensitivity = 0.075f;
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw = fmodf(yaw + xoffset, 360.0f);
+    pitch += yoffset;
+
+    if (pitch > 89.0f)
+        pitch = 89.0f;
+    if (pitch < -89.0f)
+        pitch = -89.0f;
+
+    Vector3 front = Vector3(
+        cos(to_radians(yaw)) * cos(to_radians(pitch)),
+        sin(to_radians(pitch)),
+        sin(to_radians(yaw)) * cos(to_radians(pitch))
+    );
+
+    cameraFront = Vector3::normalize(front);
 }

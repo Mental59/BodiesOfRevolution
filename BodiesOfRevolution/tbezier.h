@@ -5,7 +5,7 @@
 
 #define EPSILON 1.0e-5
 
-#define RESOLUTION 32
+#define RESOLUTION 16
 
 #define C 2.0
 
