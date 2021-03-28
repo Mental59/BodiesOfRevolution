@@ -7,7 +7,35 @@
 #include "Curve.h"
 #include "BodyOfRevolution.h"
 
+/*
+
+Control settings:
+
+When creating body:
+Enter - start building body of revolution
+Left mouse button - make point
+BackSpace - remove last point
+
+When body created:
+W - move forward
+A - move left
+D - move right
+S - move backward
+Q - move down
+E - move up
+Mouse to look around
+
+*/
+
 using namespace std;
+
+enum class Projection
+{
+    orthogonal,
+    perspective
+};
+
+Projection g_proj = Projection::orthogonal;
 
 GLFWwindow* g_window;
 int screen_width = 800, screen_height = 600;
@@ -20,12 +48,13 @@ Vector3 cameraPos = Vector3(0.0f, 0.0f, 1.0f);
 Vector3 cameraFront = Vector3(0.0f, 0.0f, -1.0f);
 Vector3 cameraUp = Vector3(0.0f, 1.0f, 0.0f);
 
-bool to_rotate = true;
-
 chrono::time_point<chrono::system_clock> g_callTime;
 
 bool keys[1024];
-bool mouse_buttons[32];
+
+Points points;
+Curve curve;
+BodyOfRevolution bodyOfRevolution;
 
 GLuint createShader(const GLchar* code, GLenum type);
 
@@ -55,21 +84,9 @@ void do_movement(double deltaTime);
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 
-enum class Projection
-{
-    orthogonal, 
-    perspective
-};
-
-Projection g_proj = Projection::orthogonal;
-
 Matrix4 createProjectionMatrix(float far, float near, float fov, int width, int height, Projection proj);
 
 Matrix4 g_P = createProjectionMatrix(100.0f, 0.1f, 40.0f, screen_width, screen_height, g_proj);
-
-Points points;
-Curve curve;
-BodyOfRevolution bodyOfRevolution;
 
 int main()
 {
@@ -228,9 +245,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
 
-    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
-        to_rotate = !to_rotate;
-
     if (key == GLFW_KEY_ENTER && action == GLFW_PRESS)
     {     
         if (!bodyOfRevolution.bodyCreated)
@@ -266,11 +280,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-    if (action == GLFW_PRESS)
-        mouse_buttons[button] = true;
-    else if (action == GLFW_RELEASE)
-        mouse_buttons[button] = false;
-
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
     {
         double xpos, ypos;

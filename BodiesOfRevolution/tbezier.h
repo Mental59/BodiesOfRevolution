@@ -31,8 +31,6 @@ public:
 
     void normalize();
 
-    void show();
-
     static Point2D absMin(const Point2D& p1, const Point2D& p2);
 };
 
