@@ -256,6 +256,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
                 g_P = createProjectionMatrix(200.0f, 0.1f, 40.0f, screen_width, screen_height, g_proj);
                 glfwSetCursorPosCallback(g_window, mouse_callback);
                 glfwSetInputMode(g_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                glfwSetMouseButtonCallback(g_window, NULL);
             }
         }      
     }
