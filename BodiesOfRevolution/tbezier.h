@@ -102,13 +102,14 @@ bool tbezierSO0(const std::vector<Point2D>& values, std::vector<Segment>& curve)
 
     for (int i = 0; i < n; ++i)
     {
-        tgL = tgR;
+        tgL = tgR; 
         cur = next;
 
-        deltaC = values[i + 1] - values[i];
+        deltaC = values[i + 1] - values[i]; // координаты вектора PiPi+1
 
 
-        // Вычисление нормированного касательного вектора
+        // Вычисление следующего нормированного касательного вектора
+
         if (i < n - 1)
         {
             next = values[i + 2] - values[i + 1];
@@ -144,6 +145,8 @@ bool tbezierSO0(const std::vector<Point2D>& values, std::vector<Segment>& curve)
         zL = IS_ZERO(tgL.x);
         zR = IS_ZERO(tgR.x);
 
+        // Вычисление длин касательных векторов в промежуточных точках
+
         l1 = zL ? 0.0 : deltaC.x / (C * tgL.x);
         l2 = zR ? 0.0 : deltaC.x / (C * tgR.x);
 
@@ -151,6 +154,8 @@ bool tbezierSO0(const std::vector<Point2D>& values, std::vector<Segment>& curve)
             l1 = IS_ZERO(tgL.y) ? 0.0 : deltaC.y / tgL.y;
         if (abs(l2 * tgR.y) > abs(deltaC.y))
             l2 = IS_ZERO(tgR.y) ? 0.0 : deltaC.y / tgR.y;
+
+        // Эвристика, улучшающая внешний вид кривой
 
         if (!zL && !zR)
         {
@@ -168,6 +173,7 @@ bool tbezierSO0(const std::vector<Point2D>& values, std::vector<Segment>& curve)
             }
         }
 
+        // Вычисление итоговых касательных векторов
         curve[i].points[0] = values[i];
         curve[i].points[1] = curve[i].points[0] + tgL * l1;
         curve[i].points[3] = values[i + 1];

@@ -582,7 +582,7 @@ bool createShaderProgram()
         ""
         "   vec3 E = vec3(0.0, 0.0, 0.0);"
         "   vec3 L = vec3(5.0, 5.0, 0.0);"
-        "   float S = 90.0;"
+        "   float S = 64.0;"
         ""
         "   vec3 n = normalize(v_normal);"
         "   vec3 l = normalize(L - v_position);"
@@ -640,12 +640,12 @@ bool createModel()
     v = curve.points2D[n - 2] - curve.points2D[n - 1];
     v.normalize();
 
-    vertices[6 * n * n - 6] = curve.points2D[n - 1].x;
-    vertices[6 * n * n - 5] = curve.points2D[n - 1].y;
-    vertices[6 * n * n - 4] = 0.0f;
-    vertices[6 * n * n - 3] = v.y;
-    vertices[6 * n * n - 2] = -v.x;
-    vertices[6 * n * n - 1] = 0.0f;
+    vertices[6 * n - 6] = curve.points2D[n - 1].x;
+    vertices[6 * n - 5] = curve.points2D[n - 1].y;
+    vertices[6 * n - 4] = 0.0f;
+    vertices[6 * n - 3] = v.y;
+    vertices[6 * n - 2] = -v.x;
+    vertices[6 * n - 1] = 0.0f;
 
     for (int i = 6, k = 1; i < (n - 1) * 6; i += 6, k++)
     {
@@ -789,8 +789,8 @@ void draw(double deltaTime)
 
         static Matrix4 scale = createScaleMatrix(0.05, 0.05, 0.05);
 
-        Matrix4 M = createRotateXMatrix(to_degrees(rotationAngle)) *
-            createRotateZMatrix(to_degrees(rotationAngle)) * scale;
+        Matrix4 M = /*createRotateXMatrix(to_degrees(rotationAngle)) *
+            createRotateZMatrix(to_degrees(rotationAngle)) **/ scale;
 
         Matrix4 V = createLookAtMatrix(cameraPos, cameraPos + cameraFront, cameraUp);
 
