@@ -145,10 +145,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="BodyOfRevolution.cpp" />
+    <ClCompile Include="Curve.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Points.cpp" />
+    <ClCompile Include="tbezier.cpp" />
+    <ClCompile Include="Tools.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BodyOfRevolution.h" />
+    <ClInclude Include="Curve.h" />
+    <ClInclude Include="Model.h" />
+    <ClInclude Include="Points.h" />
     <ClInclude Include="tbezier.h" />
+    <ClInclude Include="Tools.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
