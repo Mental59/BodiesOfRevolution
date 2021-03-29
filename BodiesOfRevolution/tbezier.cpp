@@ -121,7 +121,7 @@ bool tbezierSO0(const std::vector<Point2D>& values, std::vector<Segment>& curve)
 
         // Эвристика, улучшающая внешний вид кривой
 
-        if (!zL && !zR)
+        /*if (!zL && !zR)
         {
             tmp = tgL.y / tgL.x - tgR.y / tgR.x;
             if (!IS_ZERO(tmp))
@@ -135,7 +135,7 @@ bool tbezierSO0(const std::vector<Point2D>& values, std::vector<Segment>& curve)
                         l2 = 0.0;
                 }
             }
-        }
+        }*/
 
         // Вычисление итоговых касательных векторов
         curve[i].points[0] = values[i];

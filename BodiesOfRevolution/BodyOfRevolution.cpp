@@ -38,7 +38,7 @@ bool BodyOfRevolution::createShaderProgram()
         ""
         "void main()"
         "{"
-        "   vec3 color = vec3(0.23, 0.75, 0.21);"
+        "   vec3 color = vec3(0.0, 1.0, 0.13);"
         ""
         "   vec3 E = vec3(0.0, 0.0, 0.0);"
         "   vec3 L = vec3(5.0, 5.0, 0.0);"
@@ -55,6 +55,7 @@ bool BodyOfRevolution::createShaderProgram()
         "   float s = pow(max(dot(n, h), 0.0), S);"
         ""
         "   o_color = vec4(color * d + s * vec3(1.0, 1.0, 1.0), 1.0);"
+        "   o_color.rgb = pow(o_color.rgb, vec3(1.0 / 2.2));"
         "}"
         ;
 
@@ -218,8 +219,9 @@ void BodyOfRevolution::draw(double deltaTime, Matrix4& perspective, Vector3& cam
     glBindVertexArray(this->model.vao);
 
     static Matrix4 scale = createScaleMatrix(0.05, 0.05, 0.05);
+    static Matrix4 initialRotate = createRotateZMatrix(-90.0f);
 
-    Matrix4 M = /*createRotateXMatrix(to_degrees(rotationAngle)) *
+    Matrix4 M = initialRotate * /*createRotateXMatrix(to_degrees(rotationAngle)) *
         createRotateZMatrix(to_degrees(rotationAngle)) **/ scale;
 
     Matrix4 V = createLookAtMatrix(cameraPos, cameraPos + cameraFront, cameraUp);
